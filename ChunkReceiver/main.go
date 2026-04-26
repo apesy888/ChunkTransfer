@@ -3,6 +3,7 @@ package main
 
 import (
 	"FrameTypes"
+	"UDPBroadcast"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -35,6 +36,8 @@ func main() {
 	fmt.Printf("Listening on port 8080\n")
 	fmt.Printf("Successfully Started Server")
 
+	go UDPBroadcast.BroadcastMessage()
+
 	for {
 		conn, err := listener.Accept()
 
@@ -52,14 +55,15 @@ func handleConn(conn net.Conn) {
 	defer conn.Close()
 	//buff := make([]byte, 1024)
 	var f *os.File
+	meta := FrameTypes.FileMeta{}
 	for {
-		readFrame(conn, f)
+		readFrame(conn, f, &meta)
 
 	}
 
 }
 
-func readFrame(r io.Reader, f *os.File) (typ byte, data []byte, err error) {
+func readFrame(r io.Reader, f *os.File, meta *FrameTypes.FileMeta) (typ byte, data []byte, err error) {
 	header := make([]byte, 5)
 	if _, err = io.ReadFull(r, header); err != nil {
 		return
@@ -73,8 +77,7 @@ func readFrame(r io.Reader, f *os.File) (typ byte, data []byte, err error) {
 	case FrameTypes.FrameMeta:
 		//Handle Metadata
 		payload := handleMetadata(r, header)
-		var meta FrameTypes.FileMeta
-		if err = json.Unmarshal(payload, &meta); err != nil {
+		if err = json.Unmarshal(payload, meta); err != nil {
 			panic(err)
 		}
 
@@ -94,7 +97,7 @@ func readFrame(r io.Reader, f *os.File) (typ byte, data []byte, err error) {
 
 	case FrameTypes.FrameData:
 		payload := handleMetadata(r, header)
-		fmt.Println(len(payload)/1000, "out of max size 430,25")
+		fmt.Println("Sent: ", len(payload)/1000, " out of max size ", meta.Size)
 
 		//fmt.Printf("Bytes: %v\n", string(payload))
 		f.Write(payload)

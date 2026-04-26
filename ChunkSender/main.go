@@ -3,6 +3,7 @@ package main
 
 import (
 	"FrameTypes"
+	"UDPBroadcast"
 	"bufio"
 	"encoding/binary"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Sender of ChunkBasedFileTransferProtocol v1
@@ -24,23 +26,38 @@ func main() {
 
 	flag.Parse()
 
-	address := ":8080"
+	//address := ":8080"
 	message := "This is the secret message"
+
+	//Now we need to get the address from the broadcast
+	addr := UDPBroadcast.Listener()
+	arr := strings.Split(addr, ":")
+	hostName := arr[0]
+	address := hostName + ":8080"
 
 	fmt.Printf("Sending Data to Listener on address: {%s}\n", address)
 	fmt.Printf("Sending file %s\n", *filePath)
+	fileName := filepath.Base(*filePath)
 	conn, err := net.Dial("tcp", address)
-
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
 
 	defer conn.Close()
+
+	fileSize, err := getSize(*filePath)
+	if err != nil {
+		//log
+		fmt.Println("Err getting fileSize: ", err)
+	}
+
+	jsonMetadata := jsonMetadataWithFileName(fileName, fileSize)
+
 	fmt.Printf("Sending Message: { %s }", message)
-	writeFrame(conn, []byte(jsonMetaData))
+	writeFrame(conn, []byte(jsonMetadata))
 	//After frame start the loop to send the bytes
-	_, err = os.ReadFile("video.mp4")
+	_, err = os.ReadFile(*filePath)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -48,10 +65,10 @@ func main() {
 	tempDir := os.TempDir()
 	fmt.Println(tempDir)
 
-	path := filepath.Join(tempDir, "file.mp4")
+	path := filepath.Join(tempDir, *filePath)
 	f, _ := os.Create(path)
 	defer f.Close()
-	writeFilebytes(conn, "video.mp4")
+	writeFilebytes(conn, *filePath)
 	//Get the size in bytes. Depending on loop when we hit the max bytes to send we know when to stop
 
 	//After the bytes have been sent finally send the EOF at the end
@@ -166,11 +183,28 @@ func writeFull(w io.Writer, payload []byte) error {
 	return nil
 }
 
+func getSize(path string) (int64, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		// Handle error (e.g., file does not exist)
+		//should we panic here if we can't find the file and change later?
+		return 0, err
+	}
+	// Size returns length in bytes as an int64
+	fmt.Printf("File size: %d bytes\n", fi.Size())
+	return fi.Size(), nil
+}
+
 /*
 	binary.Write(w, binary.BigEndian, FrameTypes.FrameMeta)
 	binary.Write(w, binary.BigEndian, FrameTypes.FrameData)
 	binary.Write(w, binary.BigEndian, FrameTypes.FrameEOF)
 */
+
+func jsonMetadataWithFileName(fileName string, fileSize int64) string {
+	return fmt.Sprintf("{\n  \"version\": 1,\n  \"name\": \"%s\",\n  \"size\": %d,\n  \"mtime_unix\": 1735512345,\n  \"mode\": 420,\n  \"chunk_size\": 262144,\n  \"sha256\": \"optional-hex-string\"\n}", fileName, fileSize)
+
+}
 
 const (
 	jsonMetaData = "{\n  \"version\": 1,\n  \"name\": \"video.mp4\",\n  \"size\": 123456789,\n  \"mtime_unix\": 1735512345,\n  \"mode\": 420,\n  \"chunk_size\": 262144,\n  \"sha256\": \"optional-hex-string\"\n}"
