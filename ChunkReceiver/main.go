@@ -56,14 +56,14 @@ func handleConn(conn net.Conn) {
 	//buff := make([]byte, 1024)
 	var f *os.File
 	meta := FrameTypes.FileMeta{}
-	for {
-		readFrame(conn, f, &meta)
 
+	for {
+		f, _, _, _ = readFrame(conn, f, &meta)
 	}
 
 }
 
-func readFrame(r io.Reader, f *os.File, meta *FrameTypes.FileMeta) (typ byte, data []byte, err error) {
+func readFrame(r io.Reader, f *os.File, meta *FrameTypes.FileMeta) (file *os.File, typ byte, data []byte, err error) {
 	header := make([]byte, 5)
 	if _, err = io.ReadFull(r, header); err != nil {
 		return
@@ -87,27 +87,27 @@ func readFrame(r io.Reader, f *os.File, meta *FrameTypes.FileMeta) (typ byte, da
 		if f == nil {
 			fmt.Printf("Opening file to be %s \n", meta.Name)
 			f, err = os.Create(meta.Name)
-			defer f.Close()
+
 			if err != nil {
 				panic("Error opening file")
 			}
 		}
 		//Now that we got that JSON we should probably store it and also reenfoce some rules
-		return typ, payload, nil
+		return f, typ, payload, nil
 
 	case FrameTypes.FrameData:
 		payload := handleMetadata(r, header)
 		fmt.Println("Sent: ", len(payload)/1000, " out of max size ", meta.Size)
-
 		//fmt.Printf("Bytes: %v\n", string(payload))
+
 		f.Write(payload)
-		return typ, payload, nil
+		return f, typ, payload, nil
 
 	case FrameTypes.FrameEOF:
 		break
 	}
 
-	return typ, nil, nil
+	return f, typ, nil, nil
 }
 
 func handleMetadata(r io.Reader, header []byte) []byte {

@@ -12,7 +12,9 @@ func Listener() string {
 		IP:   net.IPv4zero, // 0.0.0.0 = listen on all interfaces
 	}
 
-	conn, err := net.ListenUDP("udp", &addr)
+	conn, err := net.ListenUDP("udp4", &addr)
+	//addr, _ := net.ResolveUDPAddr("udp4", "0.0.0.0:9999")
+	//conn, err := net.ListenMulticastUDP("udp4", nil, addr)
 	if err != nil {
 		panic(err)
 	}
