@@ -7,10 +7,14 @@ import (
 )
 
 func BroadcastMessage() {
-	conn, _ := net.DialUDP("udp", nil, &net.UDPAddr{
-		IP:   net.IPv4bcast, // 255.255.255.255
+
+	conn, _ := net.DialUDP("udp4", nil, &net.UDPAddr{
+		IP:   net.ParseIP("192.168.1.255"), // 255.255.255.255
 		Port: 9999,
 	})
+
+	//addr, _ := net.ResolveUDPAddr("udp4", "239.255.255.250:9999")
+	//conn, _ := net.DialUDP("udp4", nil, addr)
 	defer conn.Close()
 	for {
 		fmt.Println("Broadcasting data")
